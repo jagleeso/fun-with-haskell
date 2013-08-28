@@ -1,24 +1,28 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+import System.IO
+import Control.Monad (when)
+import System.FilePath.Find
 import System.Environment
-import ID3
-import System.Console.ParseArgs 
--- (parseArgsIO, ArgsComplete, Arg, IOMode)
-import Data.String.Utils (join)
+import System.Console.CmdArgs 
+import System.Directory (doesDirectoryExist)
+import System.Exit
 
+data Like = Like
+    {dir :: FilePath
+    }
+    deriving (Data, Typeable, Show, Eq)
+like = Like{ dir = "." &= typ "DIRECTORY" }
 
-argspec = [ Arg "directory" (Just 'd') (Just "directory") (argDataDefaulted "" ArgtypeString ".") "Search recursively starting at this directory"]
-
-instance (Ord a, Show a) => Show (Args a) where
-  show arg = join ", " $ map show [argsProgName arg, argsUsage arg, join ", " $ argsRest arg]
-
+dirExists :: FilePath -> IO ()
+dirExists dir = do
+    check <- doesDirectoryExist dir
+    when (not check) $ do
+      hPutStr stderr $ "directory " ++ dir ++ " does not exist"
+      exitFailure
 
 main :: IO ()
 main = do
-    args <- parseArgsIO ArgsComplete argspec
-    putStrLn $ show args
-    dir <- getArgFile args "directory" ReadMode
-    putStrLn $ show dir
-    -- args <- getArgs 
-    -- (String -> IO ()) -> [String] -> IO [()]
-    -- (String -> IO ()) -> [String] -> IO ()
-    -- mapM_ $ putStrLn . map show args
-    return ()
+    args <- cmdArgs like
+    dirExists $ dir args
+    files <- find always (fileType ==? RegularFile) $ dir args
+    mapM_ putStrLn files
